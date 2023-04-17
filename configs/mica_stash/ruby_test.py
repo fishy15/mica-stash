@@ -42,6 +42,20 @@ from m5.objects import *
 
 from test_caches import TestCacheSystem
 
+import sys
+
+if len(sys.argv) >= 2:
+    num_checks = int(sys.argv[1])
+else:
+    print('Using default number of checks = 100')
+    num_checks = 100
+
+if len(sys.argv) >= 3:
+    num_cpus = int(sys.argv[2])
+else:
+    print('Using default number of cpus = 2')
+    num_cpus = 2
+
 # create the system we are going to simulate
 system = System()
 
@@ -56,7 +70,7 @@ system.mem_ranges = [AddrRange("512MB")]  # Create an address range
 
 # Create the tester
 system.tester = RubyTester(
-    checks_to_complete=100, wakeup_frequency=10, num_cpus=2
+    checks_to_complete=num_checks, wakeup_frequency=10, num_cpus=num_cpus
 )
 
 # Create a simple memory controller and connect it to the membus
