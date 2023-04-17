@@ -49,6 +49,9 @@ from common.FileSystemConfig import config_filesystem
 
 from mesi_caches import MyCacheSystem
 
+# for reading command line arguments
+import sys
+
 # create the system we are going to simulate
 system = System()
 
@@ -79,12 +82,25 @@ system.caches.setup(system, system.cpu, [system.mem_ctrl])
 
 # Run application and use the compiled ISA to find the binary
 # grab the specific path to the binary
+if len(sys.argv) < 2:
+    raise Exception('Program name needs to be given')
+
 thispath = os.path.dirname(os.path.realpath(__file__))
-binary = os.path.join(
-    thispath,
-    "../../",
-    "tests/test-progs/threads/bin/x86/linux/threads",
-)
+binary_name = sys.argv[1]
+if binary_name == 'threads':
+    binary = os.path.join(
+        thispath,
+        "../../",
+        "tests/test-progs/threads/bin/x86/linux/threads",
+    )
+elif binary_name in ['roundrobin', 'vectoradd']:
+    binary = os.path.join(
+        thispath,
+        "../../",
+        f"tests/test-progs/benchmarks/tests/build/{binary_name}",
+    )
+else:
+    raise Exception('Invalid binary option given')
 
 # Create a process for a simple "multi-threaded" application
 process = Process()
