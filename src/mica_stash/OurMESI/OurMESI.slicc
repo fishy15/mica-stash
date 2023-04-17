@@ -1,0 +1,5 @@
+protocol "OurMESI";
+include "RubySlicc_interfaces.slicc";
+include "OurMESI-msg.sm";
+include "OurMESI-cache.sm";
+include "OurMESI-dir.sm";
