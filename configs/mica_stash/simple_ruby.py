@@ -52,6 +52,11 @@ from mesi_caches import MyCacheSystem
 # for reading command line arguments
 import sys
 
+if len(sys.argv) >= 3:
+    num_cpus = int(sys.argv[2])
+else:
+    num_cpus = 2
+
 # create the system we are going to simulate
 system = System()
 
@@ -65,7 +70,7 @@ system.mem_mode = "timing"  # Use timing accesses
 system.mem_ranges = [AddrRange("512MB")]  # Create an address range
 
 # Create a pair of simple CPUs
-system.cpu = [X86TimingSimpleCPU() for i in range(2)]
+system.cpu = [X86TimingSimpleCPU() for i in range(num_cpus)]
 
 # Create a DDR3 memory controller and connect it to the membus
 system.mem_ctrl = MemCtrl()
