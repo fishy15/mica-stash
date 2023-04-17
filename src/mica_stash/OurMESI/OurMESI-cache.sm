@@ -104,9 +104,14 @@ machine(MachineType:L1Cache, "MSI cache")
         M,      AccessPermission:Read_Write,
                     desc="Modified. Read & write permissions. Owner of block";
 
+        E,      AccessPermission:Read_Only,
+                    desc="Exclusive. Read permission. Owner of block";
+
         // States moving to Invalid
         MI_A,   AccessPermission:Busy,
                     desc="Was modified, moving to I, waiting for put ack";
+        EI_A,   AccessPermission:Busy,
+                    desc="Was exclusive, moving to I, waiting for put ack";
         SI_A,   AccessPermission:Busy,
                     desc="Was shared, moving to I, waiting for put ack";
         II_A,   AccessPermission:Invalid,
@@ -135,6 +140,7 @@ machine(MachineType:L1Cache, "MSI cache")
                              //"deadlock.";
 
         // Responses from directory
+        DataExclusive,  desc="Data from directory (exclusive)";
         DataDirNoAcks,  desc="Data from directory (acks = 0)";
         DataDirAcks,    desc="Data from directory (acks > 0)";
 
@@ -336,22 +342,26 @@ machine(MachineType:L1Cache, "MSI cache")
                 // If it's from the directory...
                 if (machineIDToMachineType(in_msg.Sender) ==
                             MachineType:Directory) {
-                    if (in_msg.Type != CoherenceResponseType:Data) {
-                        error("Directory should only reply with data");
-                    }
-                    // Take the in_msg acks and add (sub) the Acks we've seen.
-                    // The InvAck will decrement the acks we're waiting for in
-                    // tbe.AcksOutstanding to below 0 if we haven't gotten the
-                    // dir resp yet. So, if this is 0 we don't need to wait
-                    assert(in_msg.Acks + tbe.AcksOutstanding >= 0);
-                    if (in_msg.Acks + tbe.AcksOutstanding == 0) {
-                        trigger(Event:DataDirNoAcks, in_msg.addr, cache_entry,
-                                tbe);
+                    if (in_msg.Type == CoherenceResponseType:Data) {
+                        // Take the in_msg acks and add (sub) the Acks we've seen.
+                        // The InvAck will decrement the acks we're waiting for in
+                        // tbe.AcksOutstanding to below 0 if we haven't gotten the
+                        // dir resp yet. So, if this is 0 we don't need to wait
+                        assert(in_msg.Acks + tbe.AcksOutstanding >= 0);
+                        if (in_msg.Acks + tbe.AcksOutstanding == 0) {
+                            trigger(Event:DataDirNoAcks, in_msg.addr, cache_entry,
+                                    tbe);
+                        } else {
+                            // If it's not 0, then we need to wait for more acks
+                            // and we'll trigger LastInvAck later.
+                            trigger(Event:DataDirAcks, in_msg.addr, cache_entry,
+                                    tbe);
+                        }
+                    } else if (in_msg.Type == CoherenceResponseType:Exclusive) {
+                        // Received exclusive copy, so we transition to E
+                        trigger(Event:DataExclusive, in_msg.addr, cache_entry, tbe);
                     } else {
-                        // If it's not 0, then we need to wait for more acks
-                        // and we'll trigger LastInvAck later.
-                        trigger(Event:DataDirAcks, in_msg.addr, cache_entry,
-                                tbe);
+                        error("Only Data or Exclusive can be sent from dir");
                     }
                 } else {
                     // This is from another cache.
@@ -514,6 +524,18 @@ machine(MachineType:L1Cache, "MSI cache")
         enqueue(request_out, RequestMsg, 1) {
             out_msg.addr := address;
             out_msg.Type := CoherenceRequestType:PutM;
+            out_msg.Destination.add(mapAddressToMachine(address,
+                                    MachineType:Directory));
+            out_msg.DataBlk := cache_entry.DataBlk;
+            out_msg.MessageSize := MessageSizeType:Data;
+            out_msg.Requestor := machineID;
+        }
+    }
+
+    action(sendPutE, "pE", desc="Send putE to the directory") {
+        enqueue(request_out, RequestMsg, 1) {
+            out_msg.addr := address;
+            out_msg.Type := CoherenceRequestType:PutE;
             out_msg.Destination.add(mapAddressToMachine(address,
                                     MachineType:Directory));
             out_msg.DataBlk := cache_entry.DataBlk;
@@ -764,7 +786,7 @@ machine(MachineType:L1Cache, "MSI cache")
         popResponseQueue;
     }
 
-    transition({S, SM_AD, SM_A, M}, Load) {
+    transition({S, SM_AD, SM_A, M, E}, Load) {
         loadHit;
         popMandatoryQueue;
     }
@@ -811,34 +833,44 @@ machine(MachineType:L1Cache, "MSI cache")
         sendPutM;
     }
 
-    transition(M, FwdGetS, S) {
+    transition({M, E}, FwdGetS, S) {
         sendCacheDataToReq;
         sendCacheDataToDir;
         popForwardQueue;
     }
 
-    transition(M, FwdGetM, I) {
+    transition({M, E}, FwdGetM, I) {
         sendCacheDataToReq;
         deallocateCacheBlock;
         popForwardQueue;
     }
 
-    transition({MI_A, SI_A, II_A}, {Load, Store, Replacement}) {
+    transition(E, Store, M) {
+        storeHit;
+        forwardEviction;
+        popMandatoryQueue;
+    }
+
+    transition(E, Replacement, EI_A) {
+        sendPutE;
+    }
+
+    transition({MI_A, EI_A, SI_A, II_A}, {Load, Store, Replacement}) {
         stall;
     }
 
-    transition(MI_A, FwdGetS, SI_A) {
+    transition({MI_A, EI_A}, FwdGetS, SI_A) {
         sendCacheDataToReq;
         sendCacheDataToDir;
         popForwardQueue;
     }
 
-    transition(MI_A, FwdGetM, II_A) {
+    transition({MI_A, EI_A}, FwdGetM, II_A) {
         sendCacheDataToReq;
         popForwardQueue;
     }
 
-    transition({MI_A, SI_A, II_A}, PutAck, I) {
+    transition({MI_A, EI_A, SI_A, II_A}, PutAck, I) {
         deallocateCacheBlock;
         popForwardQueue;
     }
