@@ -91,6 +91,7 @@ machine(MachineType:Directory, "Directory protocol")
         // However, The access permissions are memory-centric.
         I, AccessPermission:Read_Write,  desc="Invalid in the caches.";
         S, AccessPermission:Read_Only,   desc="At least one cache has the blk";
+        E, AccessPermission:Read_Only,   desc="An exclusive cache has in E";
         M, AccessPermission:Invalid,     desc="A cache has the block in M";
 
         // Transient states
@@ -98,6 +99,7 @@ machine(MachineType:Directory, "Directory protocol")
 
         // Waiting for data from memory
         S_m, AccessPermission:Read_Write, desc="In S waiting for mem";
+        E_m, AccessPermission:Read_Write, desc="In E waiting for mem";
         M_m, AccessPermission:Read_Write, desc="Moving to M waiting for mem";
 
         // Waiting for write-ack from memory
@@ -115,6 +117,8 @@ machine(MachineType:Directory, "Directory protocol")
         PutSLast,     desc="PutS and the block has no other sharers";
         PutMOwner,    desc="Dirty data writeback from the owner";
         PutMNonOwner, desc="Dirty data writeback from non-owner";
+        PutEOwner,    desc="PutE and the cache is the owner";
+        PutENonOwner, desc="PutE and the cache is not the owner";
 
         // Cache responses
         Data,         desc="Response to fwd request with data";
@@ -266,6 +270,13 @@ machine(MachineType:Directory, "Directory protocol")
                         trigger(Event:PutMOwner, in_msg.addr);
                     } else {
                         trigger(Event:PutMNonOwner, in_msg.addr);
+                    }
+                } else if (in_msg.Type == CoherenceRequestType:PutE) {
+                    assert(is_valid(entry));
+                    if (entry.Owner.isElement(in_msg.Requestor)) {
+                        trigger(Event:PutEOwner, in_msg.addr);
+                    } else {
+                        trigger(Event:PutENonOwner, in_msg.addr);
                     }
                 } else {
                     error("Unexpected message type.");
@@ -425,6 +436,20 @@ machine(MachineType:Directory, "Directory protocol")
         }
     }
 
+    action(sendExclusiveToReq, "e", desc="Send exclusive data from memory to requestor.") {
+        peek(memQueue_in, MemoryMsg) {
+            enqueue(response_out, ResponseMsg, 1) {
+                out_msg.addr := address;
+                out_msg.Type := CoherenceResponseType:Exclusive;
+                out_msg.Sender := machineID;
+                out_msg.Destination.add(in_msg.OriginalRequestorMachId);
+                out_msg.DataBlk := in_msg.DataBlk;
+                out_msg.MessageSize := MessageSizeType:Data;
+                out_msg.Acks := 0;
+            }
+        }
+    }
+
     action(sendPutAck, "a", desc="Send the put ack") {
         peek(request_in, RequestMsg) {
             enqueue(forward_out, RequestMsg, 1) {
@@ -460,19 +485,30 @@ machine(MachineType:Directory, "Directory protocol")
     /*************************************************************************/
     // transitions
 
-    transition({I, S}, GetS, S_m) {
+    transition(I, GetS, E_m) {
+        sendMemRead;
+        setOwner;
+        popRequestQueue;
+    }
+
+    transition(S, GetS, S_m) {
         sendMemRead;
         addReqToSharers;
         popRequestQueue;
     }
 
-    transition(I, {PutSNotLast, PutSLast, PutMNonOwner}) {
+    transition(I, {PutSNotLast, PutSLast, PutMNonOwner, PutENonOwner}) {
         sendPutAck;
         popRequestQueue;
     }
 
     transition(S_m, MemData, S) {
         sendDataToReq;
+        popMemQueue;
+    }
+
+    transition(E_m, MemData, E) {
+        sendExclusiveToReq;
         popMemQueue;
     }
 
@@ -496,7 +532,7 @@ machine(MachineType:Directory, "Directory protocol")
         popRequestQueue;
     }
 
-    transition({S, S_D, SS_m, S_m}, {PutSNotLast, PutMNonOwner}) {
+    transition({S, S_D, SS_m, S_m}, {PutSNotLast, PutMNonOwner, PutENonOwner}) {
         removeReqFromSharers;
         sendPutAck;
         popRequestQueue;
@@ -508,11 +544,24 @@ machine(MachineType:Directory, "Directory protocol")
         popRequestQueue;
     }
 
-    transition(M, GetS, S_D) {
+    transition({E, M}, GetS, S_D) {
         sendFwdGetS;
         addReqToSharers;
         addOwnerToSharers;
         clearOwner;
+        popRequestQueue;
+    }
+
+    transition(E, GetM, M) {
+        sendFwdGetM;
+        clearOwner;
+        setOwner;
+        popRequestQueue;
+    }
+
+    transition(E, PutEOwner, I) {
+        clearOwner;
+        sendPutAck;
         popRequestQueue;
     }
 
@@ -523,12 +572,12 @@ machine(MachineType:Directory, "Directory protocol")
         popRequestQueue;
     }
 
-    transition({M, M_m, MI_m}, {PutSNotLast, PutSLast, PutMNonOwner}) {
+    transition({E, E_m, M, M_m, MI_m}, {PutSNotLast, PutSLast, PutMNonOwner, PutENonOwner}) {
         sendPutAck;
         popRequestQueue;
     }
 
-    transition(M, PutMOwner, MI_m) {
+    transition({E, M}, PutMOwner, MI_m) {
         sendDataToMem;
         clearOwner;
         sendPutAck;
@@ -560,7 +609,7 @@ machine(MachineType:Directory, "Directory protocol")
 
     // If we get another request for a block that's waiting on memory,
     // stall that request.
-    transition({MI_m, SS_m, S_m, M_m}, {GetS, GetM}) {
+    transition({MI_m, SS_m, S_m, E_m, M_m}, {GetS, GetM}) {
         stall;
     }
 

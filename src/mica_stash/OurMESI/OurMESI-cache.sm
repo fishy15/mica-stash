@@ -758,6 +758,13 @@ machine(MachineType:L1Cache, "MSI cache")
         popResponseQueue;
     }
 
+    transition(IS_D, {DataExclusive}, E) {
+        writeDataToCache;
+        deallocateTBE;
+        externalLoadHit;
+        popResponseQueue;
+    }
+
     transition({IM_AD, IM_A}, {Load, Store, Replacement, FwdGetS, FwdGetM}) {
         stall;
     }
