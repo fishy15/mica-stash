@@ -45,9 +45,6 @@ from m5.objects import *
 
 class MyCacheSystem(RubySystem):
     def __init__(self):
-        if buildEnv["PROTOCOL"] != "OurMESI":
-            fatal("This system assumes OurMESI from mica stash!")
-
         super(MyCacheSystem, self).__init__()
 
     def setup(self, system, cpus, mem_ctrls):

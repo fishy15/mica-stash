@@ -1,0 +1,5 @@
+protocol "OurMOSI";
+include "RubySlicc_interfaces.slicc";
+include "OurMOSI-msg.sm";
+include "OurMOSI-cache.sm";
+include "OurMOSI-dir.sm";
