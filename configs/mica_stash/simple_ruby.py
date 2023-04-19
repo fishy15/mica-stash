@@ -47,7 +47,7 @@ from m5.objects import *
 m5.util.addToPath("../../")
 from common.FileSystemConfig import config_filesystem
 
-from mesi_caches import MyCacheSystem
+from our_caches import MyCacheSystem
 
 # for reading command line arguments
 import sys
