@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
         }
         cur_sum += (i + 2);
     }
-
+gi
     if (num_valid == num_values) {
         cout << "Success!" << endl;
         return 0;
