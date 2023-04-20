@@ -99,7 +99,6 @@ machine(MachineType:Directory, "Directory protocol")
         M_m, AccessPermission:Read_Write, desc="Moving to M waiting for mem";
 
         // Waiting for write-ack from memory
-        MI_m, AccessPermission:Busy,       desc="Moving to I waiting for ack";
         S_w,  AccessPermission:Busy,       desc="Moving to S waiting for ack";
         I_w,  AccessPermission:Busy,       desc="Moving to I waiting for write ack";
     }
@@ -571,19 +570,19 @@ machine(MachineType:Directory, "Directory protocol")
         popRequestQueue;
     }
 
-    transition({M, M_m, MI_m}, {PutSNotLast, PutSLast, PutMNonOwner, PutONonOwner}) {
+    transition({M, M_m, I_w}, {PutSNotLast, PutSLast, PutMNonOwner, PutONonOwner}) {
         sendPutAck;
         popRequestQueue;
     }
 
-    transition(M, PutMOwner, MI_m) {
+    transition(M, PutMOwner, I_w) {
         sendDataToMem;
         clearOwner;
         sendPutAck;
         popRequestQueue;
     }
 
-    transition(MI_m, MemAck, I) {
+    transition(I_w, MemAck, I) {
         popMemQueue;
     }
 
@@ -593,22 +592,13 @@ machine(MachineType:Directory, "Directory protocol")
         popRequestQueue;
     }
 
-    transition(I_w, {PutSNotLast, PutSLast, PutMNonOwner, PutONonOwner}) {
-        sendPutAck;
-        popRequestQueue;
-    }
-
     transition(S_w, MemAck, S) {
-        popMemQueue;
-    }
-
-    transition(I_w, MemAck, I) {
         popMemQueue;
     }
 
     // If we get another request for a block that's waiting on memory,
     // stall that request.
-    transition({MI_m, S_w, S_m, M_m, I_w}, {GetS, GetMOwner, GetMNonOwner}) {
+    transition({S_w, S_m, M_m, I_w}, {GetS, GetMOwner, GetMNonOwner}) {
         stall;
     }
 

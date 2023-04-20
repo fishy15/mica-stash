@@ -98,7 +98,7 @@ if binary_name == 'threads':
         "../../",
         "tests/test-progs/threads/bin/x86/linux/threads",
     )
-elif binary_name in ['roundrobin', 'vectoradd']:
+elif binary_name in ['roundrobin', 'vectoradd', 'prefixscan']:
     binary = os.path.join(
         thispath,
         "../../",

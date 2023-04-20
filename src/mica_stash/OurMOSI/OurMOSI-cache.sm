@@ -873,7 +873,6 @@ machine(MachineType:L1Cache, "MSI cache")
 
     transition({O, OM_AC, OM_A}, Load) {
         loadHit;
-        forwardEviction;
         popMandatoryQueue;
     }
 
