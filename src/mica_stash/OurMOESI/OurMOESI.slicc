@@ -1,0 +1,5 @@
+protocol "OurMOESI";
+include "RubySlicc_interfaces.slicc";
+include "OurMOESI-msg.sm";
+include "OurMOESI-cache.sm";
+include "OurMOESI-dir.sm";
