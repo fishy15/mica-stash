@@ -876,6 +876,11 @@ machine(MachineType:L1Cache, "MSI cache")
         popMandatoryQueue;
     }
 
+    transition({OM_AC, OM_A}, Store) {
+        loadHit;
+        popMandatoryQueue;
+    }
+
     transition(O, Store, OM_AC) {
         allocateTBE;
         sendGetM;
