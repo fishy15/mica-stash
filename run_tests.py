@@ -12,6 +12,8 @@ def get_protocol_path(protocol):
         return 'build/OurMESI/gem5.opt'
     elif protocol == 'MOSI':
         return 'build/OurMOSI/gem5.opt'
+    elif protocol == 'MOESI':
+        return 'build/OurMOESI/gem5.opt'
     else:
         raise Exception('not an option: ' + protocol)
 
@@ -101,13 +103,22 @@ def read_output():
 
 def run_per_cpus(protocol, test):
     d = {}
-    cpus = [1]#, 2, 4, 8, 16, 32]
+    cpus = [1, 2, 4, 8, 16, 32]
     for c in cpus:
         d[c] = run_test(protocol, test, c)
     return d
 
 def run_tests(protocol):
-    tests = ['vectoradd', 'random']#, 'roundrobin', 'prefixsum']
+    tests = [
+            'sparseadd64', 'blockadd64', 'roundrobin64', 'prefixscan64',
+            'sparseadd100', 'blockadd100', 'roundrobin100', 'prefixscan100',
+            'sparseadd500', 'blockadd500', 'roundrobin500', 'prefixscan500',
+            'sparseadd1000', 'blockadd1000', 'roundrobin1000', 'prefixscan1000',
+            'random'
+    ]
+
+    tests = list(filter(lambda x: 'roundrobin' in x, tests))
+
     d = {}
     for t in tests:
         d[t] = run_per_cpus(protocol, t)
@@ -115,11 +126,11 @@ def run_tests(protocol):
 
 def main():
     d = {}
-    protocols = ['MSI', 'MESI', 'MOSI']
+    protocols = ['MSI', 'MESI', 'MOSI', 'MOESI']
     for p in protocols:
         d[p] = run_tests(p)
 
-    with open('data.bin', 'wb') as f:
+    with open('data_rr.bin', 'wb') as f:
         pickle.dump(d, f)
 
 if __name__ == '__main__':

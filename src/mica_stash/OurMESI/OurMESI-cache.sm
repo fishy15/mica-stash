@@ -746,7 +746,7 @@ machine(MachineType:L1Cache, "MSI cache")
     // of the following Events (Load, Store, Replacement, Inv) we should stall
     // When there is no third parameter to transition, it means that we want
     // to stay in the initial state.
-    transition(IS_D, {Load, Store, Replacement, Inv}) {
+    transition(IS_D, {Load, Store, Replacement, Inv, FwdGetS, FwdGetM}) {
         stall;
     }
 

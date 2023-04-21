@@ -2,7 +2,6 @@
 #include <thread>
 #include <pthread.h>
 
-
 using namespace std;
 
 void prefix_sum(int *list, int *blocks, int tid, int threads, int num_values, int num_blocks)
@@ -66,7 +65,7 @@ int main(int argc, char *argv[])
     unsigned num_values;
     unsigned add_method = 1;
     if (argc == 1) {
-        num_values = 100;
+        num_values = N;
     } else if (argc >= 2) {
         num_values = atoi(argv[1]);
         if (num_values <= 0) {

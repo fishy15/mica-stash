@@ -98,14 +98,12 @@ if binary_name == 'threads':
         "../../",
         "tests/test-progs/threads/bin/x86/linux/threads",
     )
-elif binary_name in ['roundrobin', 'vectoradd', 'prefixscan']:
+else:
     binary = os.path.join(
         thispath,
         "../../",
         f"tests/test-progs/benchmarks/tests/build/{binary_name}",
     )
-else:
-    raise Exception('Invalid binary option given')
 
 # Create a process for a simple "multi-threaded" application
 process = Process()

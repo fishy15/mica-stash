@@ -10,49 +10,11 @@ void sparse_add(int *a, int *b, int *c, int tid, int threads, int num_values)
     }
 }
 
-void block_add(int *a, int *b, int *c, int tid, int threads, int num_values)
-{
-    int work = num_values/threads;
-    int extra = num_values % threads;
-    int start = 0;
-    if (tid < extra) {
-        work++;
-        start = work * tid;
-    }
-    else {
-        start = (work + 1) * extra + (tid - extra) * work;
-    }
-    for (int i = start; i < start + work; i ++) {
-        c[i] = a[i] + b[i];
-    }
-}
-
 
 int main(int argc, char *argv[])
 {
-    unsigned num_values;
+    unsigned num_values = N;
     unsigned add_method = 1;
-    if (argc == 1) {
-        num_values = 100;
-    } else if (argc >= 2) {
-        num_values = atoi(argv[1]);
-        if (num_values <= 0) {
-            cerr << "Usage: " << argv[0] << " [num_values]" << endl;
-            return 1;
-        }
-        if (argc == 3) {
-            add_method = atoi(argv[2]);
-            if (add_method <= 0 || add_method > 2) {
-                cerr << "Usage: " << argv[0] << " [num_values] [add_method]" << endl;
-                return 1;
-            } 
-        }
-    } 
-    else {
-        cerr << "Usage: " << argv[0] << " [num_values] [add_method]" << endl;
-        return 1;
-    }
-
     unsigned cpus = thread::hardware_concurrency();
 
     cout << "Running on " << cpus << " cores. ";
@@ -76,7 +38,7 @@ int main(int argc, char *argv[])
 
     thread **threads = new thread*[cpus];
 
-    auto addFunc = add_method == 1 ? &sparse_add : &block_add;
+    auto addFunc = &sparse_add;
 
     // NOTE: -1 is required for this to work in SE mode.
     for (int i = 0; i < cpus - 1; i++) {
